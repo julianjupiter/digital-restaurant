@@ -1,10 +1,13 @@
 package com.drestaurant.customer.domain
 
-import com.drestaurant.common.domain.model.AuditEntry
-import com.drestaurant.common.domain.model.Money
-import com.drestaurant.common.domain.model.PersonName
+import com.drestaurant.common.domain.api.model.AuditEntry
+import com.drestaurant.common.domain.api.model.Money
+import com.drestaurant.common.domain.api.model.PersonName
 import com.drestaurant.customer.domain.api.CreateCustomerCommand
+import com.drestaurant.customer.domain.api.CreateCustomerOrderCommand
 import com.drestaurant.customer.domain.api.CustomerCreatedEvent
+import com.drestaurant.customer.domain.api.CustomerOrderCreatedEvent
+import com.drestaurant.customer.domain.api.model.CustomerId
 import org.axonframework.messaging.interceptors.BeanValidationInterceptor
 import org.axonframework.test.AxonAssertionError
 import org.axonframework.test.aggregate.AggregateTestFixture
@@ -17,9 +20,9 @@ import java.util.*
 class CustomerAggregateTest {
 
     private lateinit var fixture: FixtureConfiguration<Customer>
-    private val WHO = "johndoe"
-    private val auditEntry: AuditEntry = AuditEntry(WHO, Calendar.getInstance().time)
-    private val auditEntry2: AuditEntry = AuditEntry(WHO + "2", Calendar.getInstance().time)
+    private val who = "johndoe"
+    private val auditEntry: AuditEntry = AuditEntry(who, Calendar.getInstance().time)
+    private val auditEntry2: AuditEntry = AuditEntry(who + "2", Calendar.getInstance().time)
     private val orderLimit = Money(BigDecimal.valueOf(1000000))
 
     @Before
@@ -52,6 +55,30 @@ class CustomerAggregateTest {
                 .`when`(createCustomerCommand)
                 .expectException(AxonAssertionError::class.java)
 
+    }
+
+    @Test
+    fun createCustomerOrderTest() {
+        val name = PersonName("Ivan", "Dugalic")
+        val createCustomerOrderCommand = CreateCustomerOrderCommand(CustomerId("customerId"), orderLimit, auditEntry)
+        val customerCreatedEvent = CustomerCreatedEvent(name, orderLimit.add(Money(BigDecimal.ONE)), createCustomerOrderCommand.targetAggregateIdentifier, auditEntry)
+        val customerOrderCreatedEvent = CustomerOrderCreatedEvent(orderLimit, CustomerId("customerId"), createCustomerOrderCommand.customerOrderId, auditEntry)
+        fixture
+                .given(customerCreatedEvent)
+                .`when`(createCustomerOrderCommand)
+                .expectEvents(customerOrderCreatedEvent)
+    }
+
+    @Test
+    fun createCustomerOrderFailOrderLimitTest() {
+        val name = PersonName("Ivan", "Dugalic")
+        val createCustomerOrderCommand = CreateCustomerOrderCommand(CustomerId("customerId"), orderLimit, auditEntry)
+        val customerCreatedEvent = CustomerCreatedEvent(name, orderLimit, createCustomerOrderCommand.targetAggregateIdentifier, auditEntry)
+        val customerOrderCreatedEvent = CustomerOrderCreatedEvent(orderLimit, CustomerId("customerId"), createCustomerOrderCommand.customerOrderId, auditEntry)
+        fixture
+                .given(customerCreatedEvent)
+                .`when`(createCustomerOrderCommand)
+                .expectException(UnsupportedOperationException::class.java)
     }
 
 }

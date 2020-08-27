@@ -1,0 +1,27 @@
+server:
+  port: 8085
+spring:
+  data:
+    rest:
+      base-path: /api/query
+  datasource:
+    url: jdbc:h2:mem:restaurant-query
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+axon:
+  eventhandling:
+    processors:
+      query:
+        mode: tracking
+        source: kafkaMessageSource
+  kafka:
+    default-topic: axon-events
+    consumer:
+
+      group-id: query-group
+      bootstrap-servers: localhost:9092

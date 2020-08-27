@@ -1,28 +1,63 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns="http://maven.apache.org/POM/4.0.0"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>drestaurant-monolith</artifactId>
     <packaging>jar</packaging>
 
-    <name>drestaurant-apps-monolith</name>
-    <description>d-restaurant monolithic application</description>
+    <name>apps-monolith</name>
+    <description>Monolith - HTTP / WEB SOCKETS</description>
 
     <parent>
         <groupId>com.drestaurant</groupId>
         <artifactId>drestaurant-apps</artifactId>
         <version>1.0.0-SNAPSHOT</version>
     </parent>
+
     <dependencies>
+        <!-- drestaurant -->
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter</artifactId>
+            <groupId>com.drestaurant</groupId>
+            <artifactId>drestaurant-order</artifactId>
+            <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.drestaurant</groupId>
+            <artifactId>drestaurant-customer</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.drestaurant</groupId>
+            <artifactId>drestaurant-courier</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.drestaurant</groupId>
+            <artifactId>drestaurant-restaurant</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.drestaurant</groupId>
+            <artifactId>drestaurant-documentation</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!-- Axon -->
         <dependency>
             <groupId>org.axonframework</groupId>
             <artifactId>axon-spring-boot-starter</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.axonframework</groupId>
+                    <artifactId>axon-server-connector</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <!-- Spring -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -49,11 +84,13 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-websocket</artifactId>
         </dependency>
+        <!-- SQL -->
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <!-- Swagger -->
         <dependency>
             <groupId>io.springfox</groupId>
             <artifactId>springfox-swagger2</artifactId>
@@ -67,36 +104,25 @@
         <dependency>
             <groupId>io.springfox</groupId>
             <artifactId>springfox-data-rest</artifactId>
-            <version>2.9.0</version>
+            <version>2.9.2</version>
         </dependency>
-        <dependency>
-            <groupId>com.drestaurant</groupId>
-            <artifactId>drestaurant-common</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.drestaurant</groupId>
-            <artifactId>drestaurant-order</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.drestaurant</groupId>
-            <artifactId>drestaurant-customer</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.drestaurant</groupId>
-            <artifactId>drestaurant-restaurant</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.drestaurant</groupId>
-            <artifactId>drestaurant-courier</artifactId>
-            <version>${project.version}</version>
-        </dependency>
+        <!-- Kotlin -->
         <dependency>
             <groupId>org.jetbrains.kotlin</groupId>
             <artifactId>kotlin-reflect</artifactId>
+        </dependency>
+        <!-- Structurizr - document and visualize your architecture -->
+        <dependency>
+            <groupId>cc.catalysts.structurizr</groupId>
+            <artifactId>structurizr-spring-boot</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>cc.catalysts.structurizr</groupId>
+            <artifactId>structurizr-kotlin</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.structurizr</groupId>
+            <artifactId>structurizr-plantuml</artifactId>
         </dependency>
     </dependencies>
 </project>

@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>drestaurant-microservices</artifactId>
     <packaging>pom</packaging>
 
-    <name>drestaurant-apps-microservices (parent)</name>
-    <description>d-restaurant microservices</description>
+    <name>apps-microservices (parent)</name>
+    <description>Microservices - HTTP/WEB SOCKETS</description>
 
     <parent>
         <groupId>com.drestaurant</groupId>
@@ -16,10 +16,11 @@
     </parent>
 
     <modules>
-        <module>drestaurant-microservices-customer</module>
-        <module>drestaurant-microservices-restaurant</module>
-        <module>drestaurant-microservices-courier</module>
-        <module>drestaurant-microservices-order</module>
+        <module>drestaurant-microservices-command-customer</module>
+        <module>drestaurant-microservices-command-restaurant</module>
+        <module>drestaurant-microservices-command-courier</module>
+        <module>drestaurant-microservices-command-order</module>
+        <module>drestaurant-microservices-query</module>
+        <module>drestaurant-microservices-discovery-server</module>
     </modules>
-
 </project>

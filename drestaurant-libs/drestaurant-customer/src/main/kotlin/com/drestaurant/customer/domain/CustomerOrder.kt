@@ -1,24 +1,28 @@
 package com.drestaurant.customer.domain
 
-import com.drestaurant.common.domain.model.Money
-import com.drestaurant.customer.domain.api.*
-import com.drestaurant.customer.domain.model.CustomerOrderState
+import com.drestaurant.common.domain.api.model.Money
+import com.drestaurant.customer.domain.api.CreateCustomerOrderCommand
+import com.drestaurant.customer.domain.api.CustomerOrderCreatedEvent
+import com.drestaurant.customer.domain.api.CustomerOrderDeliveredEvent
+import com.drestaurant.customer.domain.api.MarkCustomerOrderAsDeliveredCommand
+import com.drestaurant.customer.domain.api.model.CustomerId
+import com.drestaurant.customer.domain.api.model.CustomerOrderId
+import com.drestaurant.customer.domain.api.model.CustomerOrderState
 import org.apache.commons.lang.builder.EqualsBuilder
 import org.apache.commons.lang.builder.HashCodeBuilder
 import org.apache.commons.lang.builder.ToStringBuilder
 import org.axonframework.commandhandling.CommandHandler
-import org.axonframework.commandhandling.model.AggregateIdentifier
-import org.axonframework.commandhandling.model.AggregateLifecycle.apply
 import org.axonframework.eventsourcing.EventSourcingHandler
+import org.axonframework.modelling.command.AggregateIdentifier
+import org.axonframework.modelling.command.AggregateLifecycle.apply
 import org.axonframework.spring.stereotype.Aggregate
-import java.math.BigDecimal
 
-@Aggregate
+@Aggregate(snapshotTriggerDefinition = "customerOrderSnapshotTriggerDefinition")
 internal class CustomerOrder {
 
     @AggregateIdentifier
-    private lateinit var id: String
-    private lateinit var customerId: String
+    private lateinit var id: CustomerOrderId
+    private lateinit var customerId: CustomerId
     private lateinit var state: CustomerOrderState
     private lateinit var orderTotal: Money
 
@@ -29,50 +33,20 @@ internal class CustomerOrder {
      */
     constructor()
 
-    @CommandHandler
     constructor(command: CreateCustomerOrderCommand) {
-        apply(CustomerOrderCreationInitiatedEvent(command.orderTotal, command.customerId, command.targetAggregateIdentifier, command.auditEntry))
-    }
-
-    @EventSourcingHandler
-    fun on(event: CustomerOrderCreationInitiatedEvent) {
-        this.id = event.aggregateIdentifier
-        this.customerId = event.customerId
-        this.orderTotal = event.orderTotal
-        this.state = CustomerOrderState.CREATE_PENDING
-    }
-
-    @CommandHandler
-    fun markOrderAsCreated(command: MarkCustomerOrderAsCreatedCommand) {
-        if (CustomerOrderState.CREATE_PENDING == state) {
-            apply(CustomerOrderCreatedEvent(command.targetAggregateIdentifier, command.auditEntry))
-        } else {
-            throw UnsupportedOperationException("The current state is not CREATE_PENDING")
-        }
-
+        apply(CustomerOrderCreatedEvent(command.orderTotal, command.targetAggregateIdentifier, command.customerOrderId, command.auditEntry))
     }
 
     @EventSourcingHandler
     fun on(event: CustomerOrderCreatedEvent) {
+        this.id = event.customerOrderId
+        this.customerId = event.aggregateIdentifier
+        this.orderTotal = event.orderTotal
         this.state = CustomerOrderState.CREATED
     }
 
     @CommandHandler
-    fun markOrderAsRejected(command: MarkCustomerOrderAsRejectedCommand) {
-        if (CustomerOrderState.CREATE_PENDING == state) {
-            apply(CustomerOrderRejectedEvent(command.targetAggregateIdentifier, command.auditEntry))
-        } else {
-            throw UnsupportedOperationException("The current state is not CREATE_PENDING")
-        }
-    }
-
-    @EventSourcingHandler
-    fun on(event: CustomerOrderRejectedEvent) {
-        this.state = CustomerOrderState.REJECTED
-    }
-
-    @CommandHandler
-    fun markOrderAsDelivered(command: MarkCustomerOrderAsDeliveredCommand) {
+    fun handle(command: MarkCustomerOrderAsDeliveredCommand) {
         if (CustomerOrderState.CREATED == state) {
             apply(CustomerOrderDeliveredEvent(command.targetAggregateIdentifier, command.auditEntry))
         } else {
@@ -85,16 +59,10 @@ internal class CustomerOrder {
         this.state = CustomerOrderState.DELIVERED
     }
 
-    override fun toString(): String {
-        return ToStringBuilder.reflectionToString(this)
-    }
+    override fun toString(): String = ToStringBuilder.reflectionToString(this)
 
-    override fun equals(other: Any?): Boolean {
-        return EqualsBuilder.reflectionEquals(this, other)
-    }
+    override fun equals(other: Any?): Boolean = EqualsBuilder.reflectionEquals(this, other)
 
-    override fun hashCode(): Int {
-        return HashCodeBuilder.reflectionHashCode(this)
-    }
+    override fun hashCode(): Int = HashCodeBuilder.reflectionHashCode(this)
 
 }

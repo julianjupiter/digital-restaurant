@@ -1,0 +1,11 @@
+server:
+  port: 8084
+spring:
+  application:
+    name: restaurant (command side)
+axon:
+  snapshot:
+    trigger:
+      treshold:
+        restaurant: 100
+        restaurantorder: 100

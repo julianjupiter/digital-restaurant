@@ -1,18 +1,20 @@
 package com.drestaurant.order.domain
 
-import com.drestaurant.common.domain.model.Money
+import com.drestaurant.common.domain.api.model.Money
+import com.drestaurant.customer.domain.api.model.CustomerId
 import com.drestaurant.order.domain.api.*
-import com.drestaurant.order.domain.api.OrderCreationInitiatedEvent
-import com.drestaurant.order.domain.model.OrderDetails
-import com.drestaurant.order.domain.model.OrderLineItem
-import com.drestaurant.order.domain.model.OrderState
+import com.drestaurant.order.domain.api.model.OrderDetails
+import com.drestaurant.order.domain.api.model.OrderId
+import com.drestaurant.order.domain.api.model.OrderLineItem
+import com.drestaurant.order.domain.api.model.OrderState
+import com.drestaurant.restaurant.domain.api.model.RestaurantId
 import org.apache.commons.lang.builder.EqualsBuilder
 import org.apache.commons.lang.builder.HashCodeBuilder
 import org.apache.commons.lang.builder.ToStringBuilder
 import org.axonframework.commandhandling.CommandHandler
-import org.axonframework.commandhandling.model.AggregateIdentifier
-import org.axonframework.commandhandling.model.AggregateLifecycle.apply
 import org.axonframework.eventsourcing.EventSourcingHandler
+import org.axonframework.modelling.command.AggregateIdentifier
+import org.axonframework.modelling.command.AggregateLifecycle.apply
 import org.axonframework.spring.stereotype.Aggregate
 import java.math.BigDecimal
 
@@ -23,7 +25,7 @@ import java.math.BigDecimal
  * @author: idugalic
  */
 
-@Aggregate
+@Aggregate(snapshotTriggerDefinition = "orderSnapshotTriggerDefinition")
 internal class Order {
 
     /**
@@ -31,14 +33,14 @@ internal class Order {
      * identifies the id field as such.
      */
     @AggregateIdentifier
-    private var id: String? = null
+    private lateinit var id: OrderId
 
     private lateinit var lineItems: List<OrderLineItem>
-    private lateinit var restaurantId: String
-    private lateinit var consumerId: String
+    private lateinit var restaurantId: RestaurantId
+    private lateinit var consumerId: CustomerId
     private lateinit var state: OrderState
 
-    val orderTotal: Money get() = this.calculateOrderTotal(this.lineItems)
+    val orderTotal: Money get() = calculateOrderTotal(lineItems)
 
     /**
      * This default constructor is used by the Repository to construct a prototype
@@ -60,12 +62,12 @@ internal class Order {
      */
     @CommandHandler
     constructor(command: CreateOrderCommand) {
-        apply(OrderCreationInitiatedEvent(OrderDetails(command.orderInfo, this.calculateOrderTotal(command.orderInfo.lineItems)), command.targetAggregateIdentifier, command.auditEntry))
+        apply(OrderCreationInitiatedEvent(OrderDetails(command.orderInfo, calculateOrderTotal(command.orderInfo.lineItems)), command.targetAggregateIdentifier, command.auditEntry))
     }
 
     /**
      * This method is marked as an EventSourcingHandler and is therefore used by the
-     * Axon framework to handle events of the specified type [OrderCreatedEvent].
+     * Axon framework to handle events of the specified type [OrderCreationInitiatedEvent].
      * The [OrderCreationInitiatedEvent] can be raised either by the constructor during
      * Order(CreateOrderCommand) or by the evensourcing zepository when 're-loading' the aggregate.
      *
@@ -73,15 +75,15 @@ internal class Order {
      */
     @EventSourcingHandler
     fun on(event: OrderCreationInitiatedEvent) {
-        this.id = event.aggregateIdentifier
-        this.consumerId = event.orderDetails.consumerId
-        this.restaurantId = event.orderDetails.restaurantId
-        this.lineItems = event.orderDetails.lineItems
-        this.state = OrderState.CREATE_PENDING
+        id = event.aggregateIdentifier
+        consumerId = CustomerId(event.orderDetails.consumerId)
+        restaurantId = RestaurantId(event.orderDetails.restaurantId)
+        lineItems = event.orderDetails.lineItems
+        state = OrderState.CREATE_PENDING
     }
 
     @CommandHandler
-    fun markOrderAsVerifiedByCustomer(command: MarkOrderAsVerifiedByCustomerCommand) {
+    fun markOrderAsVerifiedByCustomer(command: MarkOrderAsVerifiedByCustomerInternalCommand) {
         if (OrderState.CREATE_PENDING == state) {
             apply(OrderVerifiedByCustomerEvent(command.targetAggregateIdentifier, command.customerId, command.auditEntry))
         } else {
@@ -91,11 +93,11 @@ internal class Order {
 
     @EventSourcingHandler
     fun on(event: OrderVerifiedByCustomerEvent) {
-        this.state = OrderState.VERIFIED_BY_CUSTOMER
+        state = OrderState.VERIFIED_BY_CUSTOMER
     }
 
     @CommandHandler
-    fun markOrderAsVerifiedByRestaurant(command: MarkOrderAsVerifiedByRestaurantCommand) {
+    fun markOrderAsVerifiedByRestaurant(command: MarkOrderAsVerifiedByRestaurantInternalCommand) {
         if (OrderState.VERIFIED_BY_CUSTOMER == state) {
             apply(OrderVerifiedByRestaurantEvent(command.targetAggregateIdentifier, command.restaurantId, command.auditEntry))
         } else {
@@ -105,11 +107,11 @@ internal class Order {
 
     @EventSourcingHandler
     fun on(event: OrderVerifiedByRestaurantEvent) {
-        this.state = OrderState.VERIFIED_BY_RESTAURANT
+        state = OrderState.VERIFIED_BY_RESTAURANT
     }
 
     @CommandHandler
-    fun markOrderAsPrepared(command: MarkOrderAsPreparedCommand) {
+    fun markOrderAsPrepared(command: MarkOrderAsPreparedInternalCommand) {
         if (OrderState.VERIFIED_BY_RESTAURANT == state) {
             apply(OrderPreparedEvent(command.targetAggregateIdentifier, command.auditEntry))
         } else {
@@ -119,11 +121,11 @@ internal class Order {
 
     @EventSourcingHandler
     fun on(event: OrderPreparedEvent) {
-        this.state = OrderState.PREPARED
+        state = OrderState.PREPARED
     }
 
     @CommandHandler
-    fun markOrderAsReadyForDelivery(command: MarkOrderAsReadyForDeliveryCommand) {
+    fun markOrderAsReadyForDelivery(command: MarkOrderAsReadyForDeliveryInternalCommand) {
         if (OrderState.PREPARED == state) {
             apply(OrderReadyForDeliveryEvent(command.targetAggregateIdentifier, command.auditEntry))
         } else {
@@ -133,11 +135,11 @@ internal class Order {
 
     @EventSourcingHandler
     fun on(event: OrderReadyForDeliveryEvent) {
-        this.state = OrderState.READY_FOR_DELIVERY
+        state = OrderState.READY_FOR_DELIVERY
     }
 
     @CommandHandler
-    fun markOrderAsDelivered(command: MarkOrderAsDeliveredCommand) {
+    fun markOrderAsDelivered(command: MarkOrderAsDeliveredInternalCommand) {
         if (OrderState.READY_FOR_DELIVERY == state) {
             apply(OrderDeliveredEvent(command.targetAggregateIdentifier, command.auditEntry))
         } else {
@@ -147,11 +149,11 @@ internal class Order {
 
     @EventSourcingHandler
     fun on(event: OrderDeliveredEvent) {
-        this.state = OrderState.DELIVERED
+        state = OrderState.DELIVERED
     }
 
     @CommandHandler
-    fun markOrderAsRejected(command: MarkOrderAsRejectedCommand) {
+    fun markOrderAsRejected(command: MarkOrderAsRejectedInternalCommand) {
         if (OrderState.VERIFIED_BY_CUSTOMER == state || OrderState.CREATE_PENDING == state) {
             apply(OrderRejectedEvent(command.targetAggregateIdentifier, command.auditEntry))
         } else {
@@ -161,23 +163,15 @@ internal class Order {
 
     @EventSourcingHandler
     fun on(event: OrderRejectedEvent) {
-        this.state = OrderState.REJECTED
+        state = OrderState.REJECTED
     }
 
-    private fun calculateOrderTotal(lineItems: List<OrderLineItem>): Money {
-        return lineItems.stream().map(OrderLineItem::total).reduce(Money(BigDecimal.ZERO), Money::add);
-    }
+    private fun calculateOrderTotal(lineItems: List<OrderLineItem>) = lineItems.stream().map(OrderLineItem::total).reduce(Money(BigDecimal.ZERO), Money::add)
 
-    override fun toString(): String {
-        return ToStringBuilder.reflectionToString(this)
-    }
+    override fun toString(): String = ToStringBuilder.reflectionToString(this)
 
-    override fun equals(other: Any?): Boolean {
-        return EqualsBuilder.reflectionEquals(this, other)
-    }
+    override fun equals(other: Any?): Boolean = EqualsBuilder.reflectionEquals(this, other)
 
-    override fun hashCode(): Int {
-        return HashCodeBuilder.reflectionHashCode(this)
-    }
+    override fun hashCode(): Int = HashCodeBuilder.reflectionHashCode(this)
 
 }

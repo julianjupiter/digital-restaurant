@@ -1,22 +1,24 @@
 package com.drestaurant.web
 
-import com.drestaurant.common.domain.model.AuditEntry
-import com.drestaurant.common.domain.model.Money
-import com.drestaurant.common.domain.model.PersonName
+import com.drestaurant.common.domain.api.model.AuditEntry
+import com.drestaurant.common.domain.api.model.Money
+import com.drestaurant.common.domain.api.model.PersonName
 import com.drestaurant.courier.domain.api.AssignCourierOrderToCourierCommand
 import com.drestaurant.courier.domain.api.CreateCourierCommand
 import com.drestaurant.courier.domain.api.MarkCourierOrderAsDeliveredCommand
+import com.drestaurant.courier.domain.api.model.CourierId
+import com.drestaurant.courier.domain.api.model.CourierOrderId
 import com.drestaurant.customer.domain.api.CreateCustomerCommand
 import com.drestaurant.order.domain.api.CreateOrderCommand
-import com.drestaurant.order.domain.model.OrderInfo
-import com.drestaurant.order.domain.model.OrderLineItem
+import com.drestaurant.order.domain.api.model.OrderInfo
+import com.drestaurant.order.domain.api.model.OrderLineItem
 import com.drestaurant.restaurant.domain.api.CreateRestaurantCommand
 import com.drestaurant.restaurant.domain.api.MarkRestaurantOrderAsPreparedCommand
-import com.drestaurant.restaurant.domain.model.MenuItem
-import com.drestaurant.restaurant.domain.model.RestaurantMenu
+import com.drestaurant.restaurant.domain.api.model.MenuItem
+import com.drestaurant.restaurant.domain.api.model.RestaurantMenu
+import com.drestaurant.restaurant.domain.api.model.RestaurantOrderId
 import org.axonframework.commandhandling.callbacks.LoggingCallback
 import org.axonframework.commandhandling.gateway.CommandGateway
-import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.security.core.context.SecurityContextHolder
@@ -29,8 +31,8 @@ import javax.servlet.http.HttpServletResponse
  * REST Controller for handling 'commands'
  */
 @RestController
-@RequestMapping(value = "/api/command")
-class CommandController @Autowired constructor(private val commandGateway: CommandGateway) {
+@RequestMapping(value = ["/api/command"])
+class CommandController(private val commandGateway: CommandGateway) {
 
     private val currentUser: String
         get() = if (SecurityContextHolder.getContext().authentication != null) {
@@ -40,22 +42,15 @@ class CommandController @Autowired constructor(private val commandGateway: Comma
     private val auditEntry: AuditEntry
         get() = AuditEntry(currentUser, Calendar.getInstance().time)
 
-    @RequestMapping(value = "/customer/createcommand", method = [RequestMethod.POST], consumes = [MediaType.APPLICATION_JSON_VALUE])
+    @RequestMapping(value = ["/customer/createcommand"], method = [RequestMethod.POST], consumes = [MediaType.APPLICATION_JSON_VALUE])
     @ResponseStatus(value = HttpStatus.CREATED)
-    fun createCustomer(@RequestBody request: CreateCustomerRequest, response: HttpServletResponse) {
-        val orderLimit = Money(request.orderLimit)
-        val command = CreateCustomerCommand(PersonName(request.firstName, request.lastName), orderLimit, auditEntry)
-        commandGateway.send(command, LoggingCallback.INSTANCE)
-    }
+    fun createCustomer(@RequestBody request: CreateCustomerRequest, response: HttpServletResponse) = commandGateway.send(CreateCustomerCommand(PersonName(request.firstName, request.lastName), Money(request.orderLimit), auditEntry), LoggingCallback.INSTANCE)
 
-    @RequestMapping(value = "/courier/createcommand", method = [RequestMethod.POST], consumes = [MediaType.APPLICATION_JSON_VALUE])
+    @RequestMapping(value = ["/courier/createcommand"], method = [RequestMethod.POST], consumes = [MediaType.APPLICATION_JSON_VALUE])
     @ResponseStatus(value = HttpStatus.CREATED)
-    fun createCourier(@RequestBody request: CreateCourierRequest, response: HttpServletResponse) {
-        val command = CreateCourierCommand(PersonName(request.firstName, request.lastName), request.maxNumberOfActiveOrders, auditEntry)
-        commandGateway.send(command, LoggingCallback.INSTANCE)
-    }
+    fun createCourier(@RequestBody request: CreateCourierRequest, response: HttpServletResponse) = commandGateway.send(CreateCourierCommand(PersonName(request.firstName, request.lastName), request.maxNumberOfActiveOrders, auditEntry), LoggingCallback.INSTANCE)
 
-    @RequestMapping(value = "/restaurant/createcommand", method = [RequestMethod.POST], consumes = [MediaType.APPLICATION_JSON_VALUE])
+    @RequestMapping(value = ["/restaurant/createcommand"], method = [RequestMethod.POST], consumes = [MediaType.APPLICATION_JSON_VALUE])
     @ResponseStatus(value = HttpStatus.CREATED)
     fun createRestaurant(@RequestBody request: CreateRestaurantRequest, response: HttpServletResponse) {
         val menuItems = ArrayList<MenuItem>()
@@ -68,7 +63,7 @@ class CommandController @Autowired constructor(private val commandGateway: Comma
         commandGateway.send(command, LoggingCallback.INSTANCE)
     }
 
-    @RequestMapping(value = "/order/createcommand", method = [RequestMethod.POST], consumes = [MediaType.APPLICATION_JSON_VALUE])
+    @RequestMapping(value = ["/order/createcommand"], method = [RequestMethod.POST], consumes = [MediaType.APPLICATION_JSON_VALUE])
     @ResponseStatus(value = HttpStatus.CREATED)
     fun createOrder(@RequestBody request: CreateOrderRequest, response: HttpServletResponse) {
         val lineItems = ArrayList<OrderLineItem>()
@@ -76,31 +71,22 @@ class CommandController @Autowired constructor(private val commandGateway: Comma
             val item = OrderLineItem(id, name, Money(price), quantity)
             lineItems.add(item)
         }
-        val orderInfo = OrderInfo(request.customerId!!, request.restaurantId!!, lineItems)
+        val orderInfo = OrderInfo(request.customerId, request.restaurantId, lineItems)
         val command = CreateOrderCommand(orderInfo, auditEntry)
         commandGateway.send(command, LoggingCallback.INSTANCE)
     }
 
-    @RequestMapping(value = "/restaurant/order/{id}/markpreparedcommand", method = [RequestMethod.POST], consumes = [MediaType.APPLICATION_JSON_VALUE])
+    @RequestMapping(value = ["/restaurant/order/{id}/markpreparedcommand"], method = [RequestMethod.POST], consumes = [MediaType.APPLICATION_JSON_VALUE])
     @ResponseStatus(value = HttpStatus.CREATED)
-    fun markRestaurantOrderAsPrepared(@PathVariable id: String, response: HttpServletResponse) {
-        val command = MarkRestaurantOrderAsPreparedCommand(id, auditEntry)
-        commandGateway.send(command, LoggingCallback.INSTANCE)
-    }
+    fun markRestaurantOrderAsPrepared(@PathVariable id: String, response: HttpServletResponse) = commandGateway.send(MarkRestaurantOrderAsPreparedCommand(RestaurantOrderId(id), auditEntry), LoggingCallback.INSTANCE)
 
-    @RequestMapping(value = "/courier/{cid}/order/{oid}/assigncommand", method = [RequestMethod.POST], consumes = [MediaType.APPLICATION_JSON_VALUE])
+    @RequestMapping(value = ["/courier/{cid}/order/{oid}/assigncommand"], method = [RequestMethod.POST], consumes = [MediaType.APPLICATION_JSON_VALUE])
     @ResponseStatus(value = HttpStatus.CREATED)
-    fun assignOrderToCourier(@PathVariable cid: String, @PathVariable oid: String, response: HttpServletResponse) {
-        val command = AssignCourierOrderToCourierCommand(oid, cid, auditEntry)
-        commandGateway.send(command, LoggingCallback.INSTANCE)
-    }
+    fun assignOrderToCourier(@PathVariable cid: String, @PathVariable oid: String, response: HttpServletResponse) = commandGateway.send(AssignCourierOrderToCourierCommand(CourierOrderId(oid), CourierId(cid), auditEntry), LoggingCallback.INSTANCE)
 
-    @RequestMapping(value = "/courier/order/{id}/markdeliveredcommand", method = [RequestMethod.POST], consumes = [MediaType.APPLICATION_JSON_VALUE])
+    @RequestMapping(value = ["/courier/order/{id}/markdeliveredcommand"], method = [RequestMethod.POST], consumes = [MediaType.APPLICATION_JSON_VALUE])
     @ResponseStatus(value = HttpStatus.CREATED)
-    fun markCourierOrderAsDelivered(@PathVariable id: String, response: HttpServletResponse) {
-        val command = MarkCourierOrderAsDeliveredCommand(id, auditEntry)
-        commandGateway.send(command, LoggingCallback.INSTANCE)
-    }
+    fun markCourierOrderAsDelivered(@PathVariable id: String, response: HttpServletResponse) = commandGateway.send(MarkCourierOrderAsDeliveredCommand(CourierOrderId(id), auditEntry), LoggingCallback.INSTANCE)
 }
 
 /**
@@ -117,7 +103,7 @@ data class CreateCustomerRequest(val firstName: String, val lastName: String, va
 /**
  * A request for creating a Restaurant
  */
-data class CreateOrderRequest(val customerId: String?, val restaurantId: String?, val orderItems: List<OrderItemRequest>)
+data class CreateOrderRequest(val customerId: String, val restaurantId: String, val orderItems: List<OrderItemRequest>)
 
 /**
  * A request for creating a Restaurant

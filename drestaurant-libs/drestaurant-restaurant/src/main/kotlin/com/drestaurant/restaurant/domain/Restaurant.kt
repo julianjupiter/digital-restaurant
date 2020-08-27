@@ -1,18 +1,19 @@
 package com.drestaurant.restaurant.domain
 
-import com.drestaurant.common.domain.model.AuditEntry
 import com.drestaurant.restaurant.domain.api.CreateRestaurantCommand
+import com.drestaurant.restaurant.domain.api.CreateRestaurantOrderCommand
 import com.drestaurant.restaurant.domain.api.RestaurantCreatedEvent
-import com.drestaurant.restaurant.domain.model.RestaurantMenu
-import com.drestaurant.restaurant.domain.model.RestaurantOrderLineItem
-import com.drestaurant.restaurant.domain.model.RestaurantState
+import com.drestaurant.restaurant.domain.api.model.RestaurantId
+import com.drestaurant.restaurant.domain.api.model.RestaurantMenu
+import com.drestaurant.restaurant.domain.api.model.RestaurantState
 import org.apache.commons.lang.builder.EqualsBuilder
 import org.apache.commons.lang.builder.HashCodeBuilder
 import org.apache.commons.lang.builder.ToStringBuilder
 import org.axonframework.commandhandling.CommandHandler
-import org.axonframework.commandhandling.model.AggregateIdentifier
-import org.axonframework.commandhandling.model.AggregateLifecycle.apply
 import org.axonframework.eventsourcing.EventSourcingHandler
+import org.axonframework.modelling.command.AggregateIdentifier
+import org.axonframework.modelling.command.AggregateLifecycle.apply
+import org.axonframework.modelling.command.AggregateLifecycle.createNew
 import org.axonframework.spring.stereotype.Aggregate
 import java.util.stream.Collectors
 
@@ -23,7 +24,7 @@ import java.util.stream.Collectors
  * @author: idugalic
  */
 
-@Aggregate
+@Aggregate(snapshotTriggerDefinition = "restaurantSnapshotTriggerDefinition")
 internal class Restaurant {
 
     /**
@@ -31,7 +32,7 @@ internal class Restaurant {
      * annotation 'AggregateIdentifier' identifies the id field as such.
      */
     @AggregateIdentifier
-    private lateinit var id: String
+    private lateinit var id: RestaurantId
     private lateinit var name: String
     private lateinit var menu: RestaurantMenu
     private lateinit var state: RestaurantState
@@ -54,7 +55,8 @@ internal class Restaurant {
      *
      * @param command
      */
-    @CommandHandler constructor(command: CreateRestaurantCommand) {
+    @CommandHandler
+    constructor(command: CreateRestaurantCommand) {
         apply(RestaurantCreatedEvent(command.name, command.menu, command.targetAggregateIdentifier, command.auditEntry))
     }
 
@@ -69,38 +71,28 @@ internal class Restaurant {
      */
     @EventSourcingHandler
     fun on(event: RestaurantCreatedEvent) {
-        this.id = event.aggregateIdentifier
-        this.name = event.name
-        this.menu = event.menu
-        this.state = RestaurantState.OPEN
+        id = event.aggregateIdentifier
+        name = event.name
+        menu = event.menu
+        state = RestaurantState.OPEN
     }
 
-    /**
-     * Validate order by restaurant.
-     * Checking if order contain line items that are on the menu only.
-     *
-     * @param orderId
-     * @param lineItems
-     * @param auditEntry
-     */
-    fun validateOrder(orderId: String, lineItems: List<RestaurantOrderLineItem>, auditEntry: AuditEntry) {
-        if (menu.menuItems.stream().map { mi -> mi.id }.collect(Collectors.toList()).containsAll(lineItems.stream().map { li -> li.menuItemId }.collect(Collectors.toList()))) {
-            apply(OrderValidatedWithSuccessByRestaurantEvent(this.id, orderId, auditEntry))
 
+    /**
+     * This method creates kitchen order for specific restaurant / Spawns new aggregate
+     */
+    @CommandHandler
+    fun handle(command: CreateRestaurantOrderCommand) {
+        if (menu.menuItems.stream().map { mi -> mi.id }.collect(Collectors.toList()).containsAll(command.orderDetails.lineItems.stream().map { li -> li.menuItemId }.collect(Collectors.toList()))) {
+            createNew(RestaurantOrder::class.java) { RestaurantOrder(command) }
         } else {
-            apply(OrderValidatedWithErrorByRestaurantEvent(this.id, orderId, auditEntry))
+            throw UnsupportedOperationException("Restaurant order invalid - not on the Menu")
         }
     }
 
-    override fun toString(): String {
-        return ToStringBuilder.reflectionToString(this)
-    }
+    override fun toString(): String = ToStringBuilder.reflectionToString(this)
 
-    override fun equals(other: Any?): Boolean {
-        return EqualsBuilder.reflectionEquals(this, other)
-    }
+    override fun equals(other: Any?): Boolean = EqualsBuilder.reflectionEquals(this, other)
 
-    override fun hashCode(): Int {
-        return HashCodeBuilder.reflectionHashCode(this)
-    }
+    override fun hashCode(): Int = HashCodeBuilder.reflectionHashCode(this)
 }

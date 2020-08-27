@@ -1,73 +1,52 @@
 package com.drestaurant.restaurant.domain
 
-import com.drestaurant.restaurant.domain.api.*
-import com.drestaurant.restaurant.domain.model.RestaurantOrderDetails
-import com.drestaurant.restaurant.domain.model.RestaurantOrderLineItem
-import com.drestaurant.restaurant.domain.model.RestaurantOrderState
+import com.drestaurant.restaurant.domain.api.CreateRestaurantOrderCommand
+import com.drestaurant.restaurant.domain.api.MarkRestaurantOrderAsPreparedCommand
+import com.drestaurant.restaurant.domain.api.RestaurantOrderCreatedEvent
+import com.drestaurant.restaurant.domain.api.RestaurantOrderPreparedEvent
+import com.drestaurant.restaurant.domain.api.model.RestaurantId
+import com.drestaurant.restaurant.domain.api.model.RestaurantOrderId
+import com.drestaurant.restaurant.domain.api.model.RestaurantOrderLineItem
+import com.drestaurant.restaurant.domain.api.model.RestaurantOrderState
 import org.apache.commons.lang.builder.EqualsBuilder
 import org.apache.commons.lang.builder.HashCodeBuilder
 import org.apache.commons.lang.builder.ToStringBuilder
 import org.axonframework.commandhandling.CommandHandler
-import org.axonframework.commandhandling.model.AggregateIdentifier
-import org.axonframework.commandhandling.model.AggregateLifecycle.apply
 import org.axonframework.eventsourcing.EventSourcingHandler
+import org.axonframework.modelling.command.AggregateIdentifier
+import org.axonframework.modelling.command.AggregateLifecycle.apply
 import org.axonframework.spring.stereotype.Aggregate
 
-@Aggregate
+/**
+ * Restaurant Order - aggregate root
+ *
+ * @author: idugalic
+ */
+@Aggregate(snapshotTriggerDefinition = "restaurantOrderSnapshotTriggerDefinition")
 internal class RestaurantOrder {
 
     @AggregateIdentifier
-    private lateinit var id: String
-    private lateinit var restaurantId: String
+    private lateinit var id: RestaurantOrderId
+    private lateinit var restaurantId: RestaurantId
     private lateinit var state: RestaurantOrderState
     private lateinit var lineItems: List<RestaurantOrderLineItem>
 
     constructor()
 
-    @CommandHandler
     constructor(command: CreateRestaurantOrderCommand) {
-        apply(RestaurantOrderCreationInitiatedEvent(RestaurantOrderDetails(command.orderDetails.lineItems), command.restaurantId, command.targetAggregateIdentifier, command.auditEntry))
-    }
-
-    @EventSourcingHandler
-    fun on(event: RestaurantOrderCreationInitiatedEvent) {
-        this.id = event.aggregateIdentifier
-        this.restaurantId = event.restaurantId
-        this.lineItems = event.orderDetails.lineItems
-        this.state = RestaurantOrderState.CREATE_PENDING
-    }
-
-    @CommandHandler
-    fun markOrderAsCreated(command: MarkRestaurantOrderAsCreatedCommand) {
-        if (RestaurantOrderState.CREATE_PENDING == state) {
-            apply(RestaurantOrderCreatedEvent(command.targetAggregateIdentifier, command.auditEntry))
-        } else {
-            throw UnsupportedOperationException("The current state is not CREATE_PENDING")
-        }
-
+        apply(RestaurantOrderCreatedEvent(command.orderDetails.lineItems, command.restaurantOrderId, command.targetAggregateIdentifier, command.auditEntry))
     }
 
     @EventSourcingHandler
     fun on(event: RestaurantOrderCreatedEvent) {
-        this.state = RestaurantOrderState.CREATED
+        id = event.restaurantOrderId;
+        restaurantId = event.aggregateIdentifier;
+        lineItems = event.lineItems;
+        state = RestaurantOrderState.CREATED
     }
 
     @CommandHandler
-    fun markOrderAsRejected(command: MarkRestaurantOrderAsRejectedCommand) {
-        if (RestaurantOrderState.CREATE_PENDING == state) {
-            apply(RestaurantOrderRejectedEvent(command.targetAggregateIdentifier, command.auditEntry))
-        } else {
-            throw UnsupportedOperationException("The current state is not CREATE_PENDING")
-        }
-    }
-
-    @EventSourcingHandler
-    fun on(event: RestaurantOrderRejectedEvent) {
-        this.state = RestaurantOrderState.REJECTED
-    }
-
-    @CommandHandler
-    fun markOrderAsPrepared(command: MarkRestaurantOrderAsPreparedCommand) {
+    fun handle(command: MarkRestaurantOrderAsPreparedCommand) {
         if (RestaurantOrderState.CREATED == state) {
             apply(RestaurantOrderPreparedEvent(command.targetAggregateIdentifier, command.auditEntry))
         } else {
@@ -77,18 +56,12 @@ internal class RestaurantOrder {
 
     @EventSourcingHandler
     fun on(event: RestaurantOrderPreparedEvent) {
-        this.state = RestaurantOrderState.PREPARED
+        state = RestaurantOrderState.PREPARED
     }
 
-    override fun toString(): String {
-        return ToStringBuilder.reflectionToString(this)
-    }
+    override fun toString(): String = ToStringBuilder.reflectionToString(this)
 
-    override fun equals(other: Any?): Boolean {
-        return EqualsBuilder.reflectionEquals(this, other)
-    }
+    override fun equals(other: Any?): Boolean = EqualsBuilder.reflectionEquals(this, other)
 
-    override fun hashCode(): Int {
-        return HashCodeBuilder.reflectionHashCode(this)
-    }
+    override fun hashCode(): Int = HashCodeBuilder.reflectionHashCode(this)
 }

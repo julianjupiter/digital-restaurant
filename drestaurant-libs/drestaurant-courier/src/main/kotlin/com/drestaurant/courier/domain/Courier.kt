@@ -1,23 +1,25 @@
 package com.drestaurant.courier.domain
 
-import com.drestaurant.common.domain.model.AuditEntry
-import com.drestaurant.common.domain.model.PersonName
+import com.drestaurant.common.domain.api.model.AuditEntry
+import com.drestaurant.common.domain.api.model.PersonName
 import com.drestaurant.courier.domain.api.CourierCreatedEvent
 import com.drestaurant.courier.domain.api.CreateCourierCommand
+import com.drestaurant.courier.domain.api.model.CourierId
+import com.drestaurant.courier.domain.api.model.CourierOrderId
 import org.apache.commons.lang.builder.EqualsBuilder
 import org.apache.commons.lang.builder.HashCodeBuilder
 import org.apache.commons.lang.builder.ToStringBuilder
 import org.axonframework.commandhandling.CommandHandler
-import org.axonframework.commandhandling.model.AggregateIdentifier
-import org.axonframework.commandhandling.model.AggregateLifecycle.apply
 import org.axonframework.eventsourcing.EventSourcingHandler
+import org.axonframework.modelling.command.AggregateIdentifier
+import org.axonframework.modelling.command.AggregateLifecycle.apply
 import org.axonframework.spring.stereotype.Aggregate
 
 /**
  *
  * Courier - aggregate root
  */
-@Aggregate
+@Aggregate(snapshotTriggerDefinition = "courierSnapshotTriggerDefinition")
 internal class Courier {
 
     /**
@@ -25,7 +27,7 @@ internal class Courier {
      * annotation 'AggregateIdentifier' identifies the id field as such.
      */
     @AggregateIdentifier
-    private lateinit var id: String
+    private lateinit var id: CourierId
     private lateinit var name: PersonName
     private var maxNumberOfActiveOrders: Int = 5
     private var numberOfActiveOrders: Int = 0
@@ -54,30 +56,24 @@ internal class Courier {
 
     @EventSourcingHandler
     fun on(event: CourierCreatedEvent) {
-        this.id = event.aggregateIdentifier
-        this.name = event.name
-        this.maxNumberOfActiveOrders = event.maxNumberOfActiveOrders
-        this.numberOfActiveOrders = this.numberOfActiveOrders + 1
+        id = event.aggregateIdentifier
+        name = event.name
+        maxNumberOfActiveOrders = event.maxNumberOfActiveOrders
+        numberOfActiveOrders += 1
     }
 
-    fun validateOrder(orderId: String, auditEntry: AuditEntry) {
+    fun validateOrder(orderId: CourierOrderId, auditEntry: AuditEntry) {
         if (numberOfActiveOrders + 1 > maxNumberOfActiveOrders) {
-            apply(OrderValidatedWithErrorByCourierEvent(this.id, orderId, auditEntry))
+            apply(CourierValidatedOrderWithErrorInternalEvent(id, orderId, auditEntry))
 
         } else {
-            apply(OrderValidatedWithSuccessByCourierEvent(this.id, orderId, auditEntry))
+            apply(CourierValidatedOrderWithSuccessInternalEvent(id, orderId, auditEntry))
         }
     }
 
-    override fun toString(): String {
-        return ToStringBuilder.reflectionToString(this)
-    }
+    override fun toString(): String = ToStringBuilder.reflectionToString(this)
 
-    override fun equals(other: Any?): Boolean {
-        return EqualsBuilder.reflectionEquals(this, other)
-    }
+    override fun equals(other: Any?): Boolean = EqualsBuilder.reflectionEquals(this, other)
 
-    override fun hashCode(): Int {
-        return HashCodeBuilder.reflectionHashCode(this)
-    }
+    override fun hashCode(): Int = HashCodeBuilder.reflectionHashCode(this)
 }

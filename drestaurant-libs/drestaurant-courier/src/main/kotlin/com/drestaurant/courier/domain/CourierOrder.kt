@@ -1,22 +1,24 @@
 package com.drestaurant.courier.domain
 
 import com.drestaurant.courier.domain.api.*
-import com.drestaurant.courier.domain.model.CourierOrderState
+import com.drestaurant.courier.domain.api.model.CourierId
+import com.drestaurant.courier.domain.api.model.CourierOrderId
+import com.drestaurant.courier.domain.api.model.CourierOrderState
 import org.apache.commons.lang.builder.EqualsBuilder
 import org.apache.commons.lang.builder.HashCodeBuilder
 import org.apache.commons.lang.builder.ToStringBuilder
 import org.axonframework.commandhandling.CommandHandler
-import org.axonframework.commandhandling.model.AggregateIdentifier
-import org.axonframework.commandhandling.model.AggregateLifecycle.apply
 import org.axonframework.eventsourcing.EventSourcingHandler
+import org.axonframework.modelling.command.AggregateIdentifier
+import org.axonframework.modelling.command.AggregateLifecycle.apply
 import org.axonframework.spring.stereotype.Aggregate
 
-@Aggregate
+@Aggregate(snapshotTriggerDefinition = "courierOrderSnapshotTriggerDefinition")
 internal class CourierOrder {
 
     @AggregateIdentifier
-    private lateinit var id: String
-    private lateinit var cuourierId: String
+    private lateinit var id: CourierOrderId
+    private lateinit var cuourierId: CourierId
     private lateinit var state: CourierOrderState
 
     constructor()
@@ -28,26 +30,26 @@ internal class CourierOrder {
 
     @EventSourcingHandler
     fun on(event: CourierOrderCreatedEvent) {
-        this.id = event.aggregateIdentifier
-        this.state = CourierOrderState.CREATED
+        id = event.aggregateIdentifier
+        state = CourierOrderState.CREATED
     }
 
     @CommandHandler
     fun assignToCourier(command: AssignCourierOrderToCourierCommand) {
         if (CourierOrderState.CREATED == state) {
-            apply(CourierOrderAssigningInitiatedEvent(command.courierId, command.targetAggregateIdentifier, command.auditEntry))
+            apply(CourierOrderAssigningInitiatedInternalEvent(command.courierId, command.targetAggregateIdentifier, command.auditEntry))
         } else {
             throw UnsupportedOperationException("The current state is not CREATED")
         }
     }
 
     @EventSourcingHandler
-    fun on(event: CourierOrderAssigningInitiatedEvent) {
-        this.state = CourierOrderState.ASSIGN_PENDING
+    fun on(event: CourierOrderAssigningInitiatedInternalEvent) {
+        state = CourierOrderState.ASSIGN_PENDING
     }
 
     @CommandHandler
-    fun markOrderAsAssigned(command: MarkCourierOrderAsAssignedCommand) {
+    fun markOrderAsAssigned(command: MarkCourierOrderAsAssignedInternalCommand) {
         if (CourierOrderState.ASSIGN_PENDING == state) {
             apply(CourierOrderAssignedEvent(command.targetAggregateIdentifier, command.courierId, command.auditEntry))
         } else {
@@ -57,12 +59,12 @@ internal class CourierOrder {
 
     @EventSourcingHandler
     fun on(event: CourierOrderAssignedEvent) {
-        this.cuourierId = event.courierId
-        this.state = CourierOrderState.ASSIGNED
+        cuourierId = event.courierId
+        state = CourierOrderState.ASSIGNED
     }
 
     @CommandHandler
-    fun markOrderAsNotAssigned(command: MarkCourierOrderAsNotAssignedCommand) {
+    fun markOrderAsNotAssigned(command: MarkCourierOrderAsNotAssignedInternalCommand) {
         if (CourierOrderState.ASSIGN_PENDING == state) {
             apply(CourierOrderNotAssignedEvent(command.targetAggregateIdentifier, command.auditEntry))
         } else {
@@ -72,7 +74,7 @@ internal class CourierOrder {
 
     @EventSourcingHandler
     fun on(event: CourierOrderNotAssignedEvent) {
-        this.state = CourierOrderState.CREATED
+        state = CourierOrderState.CREATED
     }
 
     @CommandHandler
@@ -86,19 +88,12 @@ internal class CourierOrder {
 
     @EventSourcingHandler
     fun on(event: CourierOrderDeliveredEvent) {
-        this.state = CourierOrderState.DELIVERED
+        state = CourierOrderState.DELIVERED
     }
 
-    override fun toString(): String {
-        return ToStringBuilder.reflectionToString(this)
-    }
+    override fun toString(): String = ToStringBuilder.reflectionToString(this)
 
-    override fun equals(other: Any?): Boolean {
-        return EqualsBuilder.reflectionEquals(this, other)
-    }
+    override fun equals(other: Any?): Boolean = EqualsBuilder.reflectionEquals(this, other)
 
-    override fun hashCode(): Int {
-        return HashCodeBuilder.reflectionHashCode(this)
-    }
-
+    override fun hashCode(): Int = HashCodeBuilder.reflectionHashCode(this)
 }
